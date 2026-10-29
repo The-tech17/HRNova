@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { API } from '../services/api';
 
 const AuthContext = createContext(null);
 
@@ -30,15 +31,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   const login = async (username, password) => {
-    const res = await fetch('/api/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password })
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      throw new Error(data.error || 'Login failed');
-    }
+    const data = await API.login(username, password);
     setUser(data.user);
     setToken(data.token);
     localStorage.setItem('hrnova_user', JSON.stringify(data.user));

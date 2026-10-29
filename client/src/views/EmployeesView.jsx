@@ -20,9 +20,10 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+import { API } from '../services/api';
 
 export function EmployeesView() {
-  const { user, authHeaders } = useAuth();
+  const { user, token } = useAuth();
   const { addToast } = useToast();
   const isAdmin = user?.role === 'admin';
 
@@ -61,21 +62,18 @@ export function EmployeesView() {
   const fetchEmployees = async () => {
     try {
       setLoading(true);
-      const params = new URLSearchParams();
-      if (search) params.append('search', search);
-      if (selectedDept !== 'All') params.append('department', selectedDept);
-      if (selectedStatus !== 'All') params.append('status', selectedStatus);
-
-      const res = await fetch(`/api/employees?${params.toString()}`);
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to fetch employees');
+      const data = await API.getEmployees({
+        search,
+        department: selectedDept,
+        status: selectedStatus
+      });
 
       setEmployees(data.employees || []);
       if (data.departments && data.departments.length > 0) {
         setDepartments(data.departments);
       }
     } catch (err) {
-      addToast(err.message, 'error');
+      console.error('Fetch employees error:', err);
     } finally {
       setLoading(false);
     }
@@ -147,24 +145,11 @@ export function EmployeesView() {
 
     setSubmitting(true);
     try {
-      const url = editingEmployee ? `/api/employees/${editingEmployee.id}` : '/api/employees';
-      const method = editingEmployee ? 'PUT' : 'POST';
-
-      const res = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-          ...authHeaders()
-        },
-        body: JSON.stringify(formData)
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        if (data.errors) {
-          setFormErrors(data.errors);
-        }
-        throw new Error(data.error || 'Failed to save employee record');
+      let data;
+      if (editingEmployee) {
+        data = await API.updateEmployee(editingEmployee.id, formData, token);
+      } else {
+        data = await API.addEmployee(formData, token);
       }
 
       addToast(data.message || 'Employee record saved successfully!', 'success');
@@ -182,13 +167,7 @@ export function EmployeesView() {
     if (!deletingEmployee) return;
 
     try {
-      const res = await fetch(`/api/employees/${deletingEmployee.id}`, {
-        method: 'DELETE',
-        headers: authHeaders()
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to delete employee');
-
+      const data = await API.deleteEmployee(deletingEmployee.id, token);
       addToast(data.message || 'Employee deleted', 'success');
       setDeletingEmployee(null);
       fetchEmployees();

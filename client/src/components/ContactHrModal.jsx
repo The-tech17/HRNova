@@ -2,9 +2,10 @@ import React, { useState } from 'react';
 import { X, Send, AlertTriangle, Clock, HelpCircle, ShieldAlert } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+import { API } from '../services/api';
 
 export function ContactHrModal({ isOpen, onClose, onSuccess }) {
-  const { user, authHeaders } = useAuth();
+  const { user, token } = useAuth();
   const { addToast } = useToast();
 
   const [formData, setFormData] = useState({
@@ -45,23 +46,11 @@ export function ContactHrModal({ isOpen, onClose, onSuccess }) {
 
     setSubmitting(true);
     try {
-      const res = await fetch('/api/hr-requests', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...authHeaders()
-        },
-        body: JSON.stringify({
-          ...formData,
-          sender_name: user ? user.name : formData.sender_name,
-          sender_email: user ? user.email : formData.sender_email
-        })
-      });
-
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.error || 'Failed to submit request');
-      }
+      const data = await API.submitContactHr({
+        ...formData,
+        sender_name: user ? user.name : formData.sender_name,
+        sender_email: user ? user.email : formData.sender_email
+      }, token);
 
       addToast(data.message || 'Request submitted to HR team successfully!', 'success');
       setFormData({

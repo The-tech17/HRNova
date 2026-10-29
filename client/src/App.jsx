@@ -10,9 +10,10 @@ import { EmployeesView } from './views/EmployeesView';
 import { ProjectsView } from './views/ProjectsView';
 import { HrInboxView } from './views/HrInboxView';
 import { SupportView } from './views/SupportView';
+import { API } from './services/api';
 
 function AppContent() {
-  const { user, authHeaders } = useAuth();
+  const { user, token } = useAuth();
   const [currentTab, setCurrentTab] = useState('dashboard');
   const [mobileOpen, setMobileOpen] = useState(false);
   const [isContactHrOpen, setIsContactHrOpen] = useState(false);
@@ -21,11 +22,8 @@ function AppContent() {
   // Poll or refresh inbox count for notification badge
   const refreshInboxCount = async () => {
     try {
-      const res = await fetch('/api/hr-requests', {
-        headers: authHeaders()
-      });
-      const data = await res.json();
-      if (res.ok && data.stats) {
+      const data = await API.getHrRequests({}, token, user);
+      if (data && data.stats) {
         setUnreadInboxCount(data.stats.new || 0);
       }
     } catch (e) {

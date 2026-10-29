@@ -19,9 +19,10 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+import { API } from '../services/api';
 
 export function ProjectsView() {
-  const { user, authHeaders } = useAuth();
+  const { user, token } = useAuth();
   const { addToast } = useToast();
   const isAdmin = user?.role === 'admin';
 
@@ -59,18 +60,14 @@ export function ProjectsView() {
   const fetchProjects = async () => {
     try {
       setLoading(true);
-      const params = new URLSearchParams();
-      if (statusFilter !== 'All') params.append('status', statusFilter);
-      if (search) params.append('search', search);
-
-      const res = await fetch(`/api/projects?${params.toString()}`);
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to fetch projects');
-
+      const data = await API.getProjects({
+        status: statusFilter,
+        search
+      });
       setProjects(data.projects || []);
       if (data.stats) setStats(data.stats);
     } catch (err) {
-      addToast(err.message, 'error');
+      console.error('Fetch projects error:', err);
     } finally {
       setLoading(false);
     }
@@ -79,9 +76,8 @@ export function ProjectsView() {
   // Fetch employees list for project assignment multi-select
   const fetchEmployeesList = async () => {
     try {
-      const res = await fetch('/api/employees');
-      const data = await res.json();
-      if (res.ok && data.employees) {
+      const data = await API.getEmployees();
+      if (data.employees) {
         setAllEmployees(data.employees);
       }
     } catch (e) {
@@ -152,20 +148,12 @@ export function ProjectsView() {
 
     setSubmitting(true);
     try {
-      const url = editingProject ? `/api/projects/${editingProject.id}` : '/api/projects';
-      const method = editingProject ? 'PUT' : 'POST';
-
-      const res = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-          ...authHeaders()
-        },
-        body: JSON.stringify(formData)
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to save project');
+      let data;
+      if (editingProject) {
+        data = await API.updateProject(editingProject.id, formData, token);
+      } else {
+        data = await API.addProject(formData, token);
+      }
 
       addToast(data.message || 'Project saved successfully!', 'success');
       setIsModalOpen(false);
@@ -180,20 +168,7 @@ export function ProjectsView() {
   // Quick Status Updater
   const handleQuickStatus = async (projectId, newStatus) => {
     try {
-      const res = await fetch(`/api/projects/${projectId}/status`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          ...authHeaders()
-        },
-        body: JSON.stringify({
-          status: newStatus,
-          progress: newStatus === 'Completed' ? 100 : undefined
-        })
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to update status');
-
+      await API.updateProjectStatus(projectId, newStatus, token);
       addToast(`Project marked as ${newStatus}`, 'success');
       fetchProjects();
     } catch (err) {
@@ -206,13 +181,7 @@ export function ProjectsView() {
     if (!deletingProject) return;
 
     try {
-      const res = await fetch(`/api/projects/${deletingProject.id}`, {
-        method: 'DELETE',
-        headers: authHeaders()
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to delete project');
-
+      const data = await API.deleteProject(deletingProject.id, token);
       addToast(data.message || 'Project deleted', 'success');
       setDeletingProject(null);
       fetchProjects();

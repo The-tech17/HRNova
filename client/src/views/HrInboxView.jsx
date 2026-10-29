@@ -16,9 +16,10 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+import { API } from '../services/api';
 
 export function HrInboxView({ onOpenContactHr }) {
-  const { user, authHeaders } = useAuth();
+  const { user, token } = useAuth();
   const { addToast } = useToast();
   const isAdmin = user?.role === 'admin';
 
@@ -40,21 +41,16 @@ export function HrInboxView({ onOpenContactHr }) {
   const fetchRequests = async () => {
     try {
       setLoading(true);
-      const params = new URLSearchParams();
-      if (statusFilter !== 'All') params.append('status', statusFilter);
-      if (urgencyFilter !== 'All') params.append('urgency', urgencyFilter);
-      if (search) params.append('search', search);
-
-      const res = await fetch(`/api/hr-requests?${params.toString()}`, {
-        headers: authHeaders()
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to fetch HR requests');
+      const data = await API.getHrRequests({
+        status: statusFilter,
+        urgency: urgencyFilter,
+        search
+      }, token, user);
 
       setRequests(data.requests || []);
       if (data.stats) setStats(data.stats);
     } catch (err) {
-      addToast(err.message, 'error');
+      console.error('Fetch HR requests error:', err);
     } finally {
       setLoading(false);
     }
@@ -76,21 +72,7 @@ export function HrInboxView({ onOpenContactHr }) {
 
     setUpdating(true);
     try {
-      const res = await fetch(`/api/hr-requests/${selectedRequest.id}/status`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          ...authHeaders()
-        },
-        body: JSON.stringify({
-          status: replyStatus,
-          admin_reply: adminReply
-        })
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to update request');
-
+      const data = await API.updateHrRequestStatus(selectedRequest.id, replyStatus, adminReply, token);
       addToast(data.message || 'Request updated', 'success');
       setSelectedRequest(null);
       fetchRequests();
@@ -104,14 +86,8 @@ export function HrInboxView({ onOpenContactHr }) {
   const handleDeleteRequest = async (id) => {
     if (!confirm('Are you sure you want to delete this message from the inbox?')) return;
     try {
-      const res = await fetch(`/api/hr-requests/${id}`, {
-        method: 'DELETE',
-        headers: authHeaders()
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to delete');
-
-      addToast('Message removed from inbox', 'success');
+      const data = await API.deleteHrRequest(id, token);
+      addToast(data.message || 'Message removed from inbox', 'success');
       if (selectedRequest?.id === id) setSelectedRequest(null);
       fetchRequests();
     } catch (err) {

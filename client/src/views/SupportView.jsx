@@ -18,9 +18,10 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+import { API } from '../services/api';
 
 export function SupportView() {
-  const { user, authHeaders } = useAuth();
+  const { user, token } = useAuth();
   const { addToast } = useToast();
   const isAdmin = user?.role === 'admin';
 
@@ -60,19 +61,14 @@ export function SupportView() {
   // Fetch FAQs
   const fetchFaqs = async () => {
     try {
-      const params = new URLSearchParams();
-      if (selectedFaqCat !== 'All') params.append('category', selectedFaqCat);
-      if (faqSearch) params.append('search', faqSearch);
-
-      const res = await fetch(`/api/queries/faqs?${params.toString()}`);
-      const data = await res.json();
-      if (res.ok) {
-        setFaqs(data.faqs || []);
-        if (data.categories) setFaqCategories(data.categories);
-        // Expand first by default if not set
-        if (!expandedFaqId && data.faqs?.length > 0) {
-          setExpandedFaqId(data.faqs[0].id);
-        }
+      const data = await API.getFaqs({
+        category: selectedFaqCat,
+        search: faqSearch
+      });
+      setFaqs(data.faqs || []);
+      if (data.categories) setFaqCategories(data.categories);
+      if (!expandedFaqId && data.faqs?.length > 0) {
+        setExpandedFaqId(data.faqs[0].id);
       }
     } catch (e) {
       console.error('Failed to load FAQs:', e);
@@ -83,18 +79,13 @@ export function SupportView() {
   const fetchQueries = async () => {
     try {
       setLoadingQueries(true);
-      const params = new URLSearchParams();
-      if (queryStatusFilter !== 'All') params.append('status', queryStatusFilter);
-      if (querySearch) params.append('search', querySearch);
+      const data = await API.getQueries({
+        status: queryStatusFilter,
+        search: querySearch
+      }, token);
 
-      const res = await fetch(`/api/queries?${params.toString()}`, {
-        headers: authHeaders()
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setQueries(data.queries || []);
-        if (data.stats) setQueryStats(data.stats);
-      }
+      setQueries(data.queries || []);
+      if (data.stats) setQueryStats(data.stats);
     } catch (e) {
       console.error('Failed to load queries:', e);
     } finally {
@@ -136,21 +127,11 @@ export function SupportView() {
 
     setSubmittingQuery(true);
     try {
-      const res = await fetch('/api/queries', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...authHeaders()
-        },
-        body: JSON.stringify({
-          ...formData,
-          employee_name: user?.name || formData.employee_name,
-          employee_email: user?.email || formData.employee_email
-        })
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to submit question');
+      const data = await API.submitQuery({
+        ...formData,
+        employee_name: user?.name || formData.employee_name,
+        employee_email: user?.email || formData.employee_email
+      }, token);
 
       addToast(data.message || 'Support question submitted successfully!', 'success');
       setIsSubmitModalOpen(false);
@@ -177,21 +158,7 @@ export function SupportView() {
 
     setResolving(true);
     try {
-      const res = await fetch(`/api/queries/${selectedQueryDetail.id}/resolve`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          ...authHeaders()
-        },
-        body: JSON.stringify({
-          resolution: resolutionInput,
-          status: resolveStatus
-        })
-      });
-
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to update query');
-
+      const data = await API.resolveQuery(selectedQueryDetail.id, resolutionInput, resolveStatus, token, user?.name);
       addToast(data.message || 'Query updated successfully', 'success');
       setSelectedQueryDetail(null);
       fetchQueries();

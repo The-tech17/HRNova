@@ -19,9 +19,10 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+import { API } from '../services/api';
 
 export function DashboardView({ setCurrentTab, onOpenContactHr }) {
-  const { user, authHeaders } = useAuth();
+  const { user, token } = useAuth();
   const { addToast } = useToast();
   const isAdmin = user?.role === 'admin';
 
@@ -31,14 +32,10 @@ export function DashboardView({ setCurrentTab, onOpenContactHr }) {
   const fetchDashboardStats = async () => {
     try {
       setLoading(true);
-      const res = await fetch('/api/dashboard/stats', {
-        headers: authHeaders()
-      });
-      const resData = await res.json();
-      if (!res.ok) throw new Error(resData.error || 'Failed to fetch dashboard metrics');
+      const resData = await API.getDashboardStats(token, user);
       setData(resData);
     } catch (err) {
-      addToast(err.message, 'error');
+      console.error('Dashboard metrics load error:', err);
     } finally {
       setLoading(false);
     }
