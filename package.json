@@ -1,0 +1,15 @@
+{
+  "name": "hrnova",
+  "version": "1.0.0",
+  "description": "HRNova – Smart HR Dashboard with React, Express, and SQLite",
+  "main": "server/index.js",
+  "scripts": {
+    "dev:server": "node server/index.js",
+    "dev:client": "npm run dev --prefix client",
+    "dev": "concurrently -n \"SERVER,CLIENT\" -c \"blue,green\" \"npm run dev:server\" \"npm run dev:client\"",
+    "build": "npm run build --prefix client"
+  },
+  "dependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
